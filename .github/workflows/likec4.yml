@@ -1,3 +1,4 @@
+
 name: LikeC4 Diagrams
 
 on:
@@ -19,8 +20,11 @@ jobs:
         with:
           node-version: '20'
 
-      - name: Install LikeC4
-        run: npm install -g likec4
+      - name: Install LikeC4 and dependencies
+        run: |
+          npm install -g likec4
+          npx playwright install --with-deps chromium
+          npx playwright install-deps
 
       - name: Create output directory
         run: mkdir -p diagrams
