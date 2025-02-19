@@ -1,0 +1,60 @@
+
+name: LikeC4 Diagrams
+
+on:
+  pull_request:
+    paths:
+      - '**/*.c4'
+      - '.github/workflows/likec4.yml'
+
+jobs:
+  generate-diagrams:
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v3
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v3
+        with:
+          node-version: '16'
+
+      - name: Install LikeC4
+        run: npm install -g likec4
+
+      - name: Create output directory
+        run: mkdir -p diagrams
+
+      - name: Generate diagrams
+        run: |
+          for file in $(find . -name "*.c4"); do
+            filename=$(basename "$file" .c4)
+            likec4 render "$file" -o "diagrams/${filename}.svg"
+          done
+
+      - name: Upload diagrams as artifacts
+        uses: actions/upload-artifact@v3
+        with:
+          name: c4-diagrams
+          path: diagrams/
+
+      - name: Find Comment
+        uses: peter-evans/find-comment@v2
+        id: fc
+        with:
+          issue-number: ${{ github.event.pull_request.number }}
+          comment-author: 'github-actions[bot]'
+          body-includes: 'Generated C4 Diagrams'
+
+      - name: Create or update comment
+        uses: peter-evans/create-or-update-comment@v3
+        with:
+          comment-id: ${{ steps.fc.outputs.comment-id }}
+          issue-number: ${{ github.event.pull_request.number }}
+          body: |
+            ### Generated C4 Diagrams
+            
+            The following diagrams have been generated:
+            
+            
