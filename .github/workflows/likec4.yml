@@ -29,7 +29,7 @@ jobs:
         run: |
           for file in $(find . -name "*.c4"); do
             filename=$(basename "$file" .c4)
-            likec4 export svg "$file" --output "diagrams/${filename}.svg"
+            likec4 export png "$file" --output "diagrams/${filename}.png"
           done
 
       - name: Upload diagrams as artifacts
