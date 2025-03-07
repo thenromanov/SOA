@@ -1,0 +1,158 @@
+specification {
+    element system {
+        style {
+            shape browser
+        }
+    }
+    element user {
+        style {
+            shape person
+            color amber
+        }
+    }
+    element container
+
+    relationship uses {
+        line solid
+    }
+    relationship rest {
+        line dashed
+        technology 'REST'
+    }
+    relationship query_language {
+        line dotted
+    }
+}
+
+model {
+    user customer {
+        title 'Customer'
+        description 'Пользователь социальной сети'
+    }
+    system socialNetwork {
+        title 'Social network'
+        description 'Социальная сеть с возможностью создания постов, комментариев и статистики'
+
+        container ui {
+            title 'Web UI'
+            description 'Веб-интерфейс социальной сети'
+            technology 'JS, React'
+        }
+
+        container apiGateway {
+            title 'API Gateway'
+            description 'Маршрутизация запросов и управление доступом'
+            technology 'Go'
+        }
+
+        container userService {
+            title 'User Service'
+            description 'Сервис пользователей'
+            technology 'C++/Oat++'
+        }
+
+        container postService {
+            title 'Post Service'
+            description 'Сервис постов и комментариев'
+            technology 'Python/FastAPI'
+        }
+
+        container statsService {
+            title 'Stats service'
+            description 'Сервис статистики для подсчета лайков, просмотров, комментариев'
+            technology 'Rust'
+        }
+
+        container messageBroker {
+            title 'Message Broker'
+            description 'Брокер сообщений'
+            technology 'Apache Kafka'
+            icon tech:kafka
+            style {
+                shape queue
+            }
+        }
+
+        container userDB {
+            title 'User Database'
+            description 'База данных пользователей'
+            technology 'PostgreSQL'
+            icon tech:postgresql
+            style {
+                shape storage
+            }
+        }
+
+        container postDB {
+            title 'Post Database'
+            description 'База данных постов'
+            technology 'Apache Cassandra'
+            icon tech:cassandra
+            style {
+                shape storage
+            }
+        }
+
+        container statsDB {
+            title 'Statistics Database'
+            description 'База данных статистики'
+            technology 'ClickHouse'
+            icon https://cdnlogo.com/logos/c/57/clickhouse.svg
+            style {
+                shape storage
+            }
+        }
+    }
+
+    customer -[uses]-> socialNetwork.apiGateway 'Использует' {
+        technology 'HTTPS'
+    }
+
+    socialNetwork.apiGateway -> socialNetwork.ui 'Перенаправляет' {
+        technology 'HTTPS'
+    }
+
+    socialNetwork.apiGateway -[rest]-> socialNetwork.userService 'Маршрутизирует' {
+        description 'Маршрутизирует запросы пользователей'
+    }
+    socialNetwork.apiGateway -[rest]-> socialNetwork.postService 'Маршрутизирует' {
+        description 'Маршрутизирует запросы постов'
+    }
+    socialNetwork.apiGateway -[rest]-> socialNetwork.statsService 'Маршрутизирует' {
+        description 'Маршрутизирует запросы статистики'
+    }
+
+    userService -[query_language]-> userDB 'Читает/Пишет' {
+        technology 'SQL'
+    }
+    postService -[query_language]-> postDB 'Читает/Пишет' {
+        technology 'CQL'
+    }
+    statsService -[query_language]-> statsDB 'Читает/Пишет' {
+        technology 'SQL'
+    }
+
+    postService -[query_language]-> messageBroker 'Публикует события' {
+        description 'Публикует события лайков, просмотров'
+    }
+    messageBroker -[query_language]-> statsService 'Пописывается на события' {
+        description 'Подписывается на события лайков, просмотров'
+    }
+}
+
+views {
+    view contextView {
+        title 'Context View'
+        description 'Диаграмма контекста социальной сети'
+        include *
+        autoLayout TopBottom
+    }
+
+    view containerView of socialNetwork {
+        title 'Container View'
+        description 'Диаграмма контейнеров социальной сети'
+        include *
+        autoLayout TopBottom
+    }
+}
+
