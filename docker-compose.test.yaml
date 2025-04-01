@@ -1,0 +1,21 @@
+services:
+  user-service-test:
+    image: python:3.10-slim
+    volumes:
+      - ./user_service:/app
+    working_dir: /app
+    command: sh -c "pip install pytest && python -m pytest -xvs"
+
+  post-service-test:
+    image: python:3.10-slim
+    volumes:
+      - ./post_service:/app
+    working_dir: /app
+    command: sh -c "pip install pytest && python -m pytest -xvs"
+
+  api-gateway-test:
+    image: python:3.10-slim
+    volumes:
+      - ./api_gateway:/app
+    working_dir: /app
+    command: sh -c "pip install pytest && python -m pytest -xvs"
