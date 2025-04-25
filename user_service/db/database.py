@@ -44,8 +44,4 @@ def get_db():
     global SessionLocal
     if not SessionLocal:
         init_db()
-    db = SessionLocal()
-    try:
-        yield db
-    finally:
-        db.close()
+    return SessionLocal()

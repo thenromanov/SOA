@@ -9,6 +9,46 @@ services:
       - POSTGRES_MULTIPLE_DATABASES=userservice,postservice
     volumes:
       - postgres-data:/var/lib/postgresql/data
+      - ./init-multiple-databases.sh:/docker-entrypoint-initdb.d/init-multiple-databases.sh
+    networks:
+      - app-network
+
+  zookeeper:
+    image: confluentinc/cp-zookeeper:latest
+    ports:
+      - "22181:2181"
+    environment:
+      - ZOOKEEPER_CLIENT_PORT=2181
+      - ZOOKEEPER_TICK_TIME=2000
+    networks:
+      - app-network
+
+  kafka:
+    image: confluentinc/cp-kafka:latest
+    depends_on:
+      - zookeeper
+    ports:
+      - "29092:29092"
+    environment:
+      - KAFKA_BROKER_ID=1
+      - KAFKA_ZOOKEEPER_CONNECT=zookeeper:2181
+      - KAFKA_ADVERTISED_LISTENERS=PLAINTEXT://kafka:29092
+      - KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR=2
+      - KAFKA_AUTO_CREATE_TOPICS_ENABLE=true
+    networks:
+      - app-network
+
+  kafka-ui:
+    image: provectuslabs/kafka-ui:latest
+    depends_on:
+      - kafka
+      - zookeeper
+    ports:
+      - "8090:8080"
+    environment:
+      - KAFKA_CLUSTERS_0_NAME=local
+      - KAFKA_CLUSTERS_0_BOOTSTRAPSERVERS=kafka:29092
+      - KAFKA_CLUSTERS_0_ZOOKEEPER=zookeeper:2181
     networks:
       - app-network
 
@@ -16,9 +56,11 @@ services:
     build: ./user_service
     depends_on:
       - postgres
+      - kafka
     environment:
       - DATABASE_URL=postgresql://postgres:postgres@postgres:5432/userservice
-      - JWT_SECRET=your_secure_jwt_secret
+      - KAFKA_BOOTSTRAP_SERVERS=kafka:29092
+      - JWT_SECRET=thenromanov-secret-key
     networks:
       - app-network
 
@@ -26,9 +68,11 @@ services:
     build: ./post_service
     depends_on:
       - postgres
+      - kafka
     environment:
       - DATABASE_URL=postgresql://postgres:postgres@postgres:5432/postservice
-      - JWT_SECRET=your_secure_jwt_secret
+      - KAFKA_BOOTSTRAP_SERVERS=kafka:29092
+      - JWT_SECRET=thenromanov-secret-key
     networks:
       - app-network
 
@@ -38,9 +82,11 @@ services:
       - "3000:3000"
     depends_on:
       - user-service
+      - post-service
     environment:
       - USER_SERVICE_ADDRESS=user-service:50051
       - POST_SERVICE_ADDRESS=post-service:50052
+      - JWT_SECRET=thenromanov-secret-key
     networks:
       - app-network
 
