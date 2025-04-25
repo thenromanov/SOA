@@ -1,0 +1,52 @@
+services:
+  postgres:
+    image: postgres:13
+    ports:
+      - "5432:5432"
+    environment:
+      - POSTGRES_USER=postgres
+      - POSTGRES_PASSWORD=postgres
+      - POSTGRES_MULTIPLE_DATABASES=userservice,postservice
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+    networks:
+      - app-network
+
+  user-service:
+    build: ./user_service
+    depends_on:
+      - postgres
+    environment:
+      - DATABASE_URL=postgresql://postgres:postgres@postgres:5432/userservice
+      - JWT_SECRET=your_secure_jwt_secret
+    networks:
+      - app-network
+
+  post-service:
+    build: ./post_service
+    depends_on:
+      - postgres
+    environment:
+      - DATABASE_URL=postgresql://postgres:postgres@postgres:5432/postservice
+      - JWT_SECRET=your_secure_jwt_secret
+    networks:
+      - app-network
+
+  api-gateway:
+    build: ./api_gateway
+    ports:
+      - "3000:3000"
+    depends_on:
+      - user-service
+    environment:
+      - USER_SERVICE_ADDRESS=user-service:50051
+      - POST_SERVICE_ADDRESS=post-service:50052
+    networks:
+      - app-network
+
+networks:
+  app-network:
+    driver: bridge
+
+volumes:
+  postgres-data:
