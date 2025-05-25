@@ -2,6 +2,7 @@ import concurrent.futures
 import grpc
 import time
 import logging
+import os
 import signal
 import sys
 from grpc_server.user_server import UserServicer
@@ -38,7 +39,7 @@ def serve():
     server = grpc.server(concurrent.futures.ThreadPoolExecutor(max_workers=10))
     user_pb2_grpc.add_UserServiceServicer_to_server(UserServicer(), server)
 
-    port = 50051
+    port = port = os.getenv("GRPC_PORT", "50051")
 
     server.add_insecure_port(f"[::]:{str(port)}")
     server.start()

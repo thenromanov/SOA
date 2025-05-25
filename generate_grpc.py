@@ -44,6 +44,8 @@ if __name__ == "__main__":
     os.makedirs("api_gateway/proto", exist_ok=True)
     os.makedirs("user_service/proto", exist_ok=True)
     os.makedirs("post_service/proto", exist_ok=True)
+    os.makedirs("stats_service/proto", exist_ok=True)
 
     generate_grpc_code("user", "./proto/user.proto")
     generate_grpc_code("post", "./proto/post.proto")
+    generate_grpc_code("stats", "./proto/stats.proto")
