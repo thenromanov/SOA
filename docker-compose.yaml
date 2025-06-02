@@ -13,6 +13,20 @@ services:
     networks:
       - app-network
 
+  clickhouse:
+    image: clickhouse/clickhouse-server:22.8
+    ports:
+      - "8123:8123"
+      - "9000:9000"
+    volumes:
+      - clickhouse-data:/var/lib/clickhouse
+    ulimits:
+      nofile:
+        soft: 262144
+        hard: 262144
+    networks:
+      - app-network
+
   zookeeper:
     image: confluentinc/cp-zookeeper:latest
     ports:
@@ -32,8 +46,11 @@ services:
     environment:
       - KAFKA_BROKER_ID=1
       - KAFKA_ZOOKEEPER_CONNECT=zookeeper:2181
+      - KAFKA_LISTENERS=PLAINTEXT://0.0.0.0:29092
       - KAFKA_ADVERTISED_LISTENERS=PLAINTEXT://kafka:29092
-      - KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR=2
+      - KAFKA_LISTENER_SECURITY_PROTOCOL_MAP=PLAINTEXT:PLAINTEXT
+      - KAFKA_INTER_BROKER_LISTENER_NAME=PLAINTEXT
+      - KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR=1
       - KAFKA_AUTO_CREATE_TOPICS_ENABLE=true
     networks:
       - app-network
@@ -61,6 +78,7 @@ services:
       - DATABASE_URL=postgresql://postgres:postgres@postgres:5432/userservice
       - KAFKA_BOOTSTRAP_SERVERS=kafka:29092
       - JWT_SECRET=thenromanov-secret-key
+      - GRPC_PORT=50051
     networks:
       - app-network
 
@@ -73,6 +91,24 @@ services:
       - DATABASE_URL=postgresql://postgres:postgres@postgres:5432/postservice
       - KAFKA_BOOTSTRAP_SERVERS=kafka:29092
       - JWT_SECRET=thenromanov-secret-key
+      - GRPC_PORT=50052
+    networks:
+      - app-network
+
+  stats-service:
+    build: ./stats_service
+    depends_on:
+      - clickhouse
+      - kafka
+    environment:
+      - CLICKHOUSE_HOST=clickhouse
+      - CLICKHOUSE_PORT=9000
+      - CLICKHOUSE_USER=default
+      - CLICKHOUSE_PASSWORD=
+      - CLICKHOUSE_DB=default
+      - KAFKA_BOOTSTRAP_SERVERS=kafka:29092
+      - KAFKA_GROUP_ID=stats-service
+      - GRPC_PORT=50053
     networks:
       - app-network
 
@@ -83,9 +119,11 @@ services:
     depends_on:
       - user-service
       - post-service
+      - stats-service
     environment:
       - USER_SERVICE_ADDRESS=user-service:50051
       - POST_SERVICE_ADDRESS=post-service:50052
+      - STATS_SERVICE_ADDRESS=stats-service:50053
       - JWT_SECRET=thenromanov-secret-key
     networks:
       - app-network
@@ -96,3 +134,4 @@ networks:
 
 volumes:
   postgres-data:
+  clickhouse-data:
