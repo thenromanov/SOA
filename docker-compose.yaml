@@ -128,6 +128,17 @@ services:
     networks:
       - app-network
 
+  e2e-tests:
+    build:
+      context: ./e2e_tests
+    environment:
+      BASE_URL: http://api-gateway:3000
+      POSTGRES_HOST: postgres
+      CLICKHOUSE_HOST: clickhouse
+    networks:
+      - app-network
+    profiles: [ "test" ]
+
 networks:
   app-network:
     driver: bridge

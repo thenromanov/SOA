@@ -32,6 +32,8 @@ async def register_user(user: UserCreate):
             raise HTTPException(status.HTTP_400_BAD_REQUEST, detail=response.message)
         logger.info(f"Registered: {user.email}")
         return {"message": response.message}
+    except HTTPException:
+        raise
     except Exception as e:
         logger.error(f"Register error: {e}")
         raise HTTPException(status.HTTP_500_INTERNAL_SERVER_ERROR, detail="Server error")
@@ -55,6 +57,8 @@ async def login_user(user: UserLogin):
                 "email": response.user.email,
             },
         }
+    except HTTPException:
+        raise
     except Exception as e:
         logger.error(f"Login error: {e}")
         raise HTTPException(status.HTTP_500_INTERNAL_SERVER_ERROR, detail="Server error")

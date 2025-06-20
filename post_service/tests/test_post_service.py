@@ -5,6 +5,7 @@ import uuid
 from datetime import datetime
 
 from grpc_server.post_server import PostServicer
+from models.post_model import Post
 from proto import post_pb2
 
 
@@ -475,3 +476,162 @@ def test_get_comments_post_not_found(post_servicer):
     servicer.GetComments(request, context)
     
     context.set_code.assert_called_with(grpc.StatusCode.NOT_FOUND)
+
+
+def test_add_comment_to_private_post_by_owner(post_servicer, kafka_mock):
+    servicer, context, session_mock = post_servicer
+
+    post_id = str(uuid.uuid4())
+    creator_id = "creator1"
+    comment_text = "Self comment on private post"
+    
+    post_mock = MagicMock()
+    post_mock.id = post_id
+    post_mock.creator_id = creator_id
+    post_mock.is_private = True
+    
+    query_mock = MagicMock()
+    filter_mock = MagicMock()
+    session_mock.query.return_value = query_mock
+    query_mock.filter.return_value = filter_mock
+    filter_mock.first.return_value = post_mock
+    
+    request = post_pb2.AddCommentRequest(
+        post_id=post_id,
+        user_id=creator_id,
+        text=comment_text
+    )
+    
+    with patch('grpc_server.post_server.uuid.uuid4', return_value='comment-123'):
+        response = servicer.AddComment(request, context)
+    
+    assert response.id == 'comment-123'
+    assert response.post_id == post_id
+    assert response.user_id == creator_id
+    assert response.text == comment_text
+    
+    session_mock.add.assert_called_once()
+    added_comment = session_mock.add.call_args[0][0]
+    assert added_comment.id == 'comment-123'
+    assert added_comment.post_id == post_id
+    assert added_comment.user_id == creator_id
+    assert added_comment.text == comment_text
+    
+    session_mock.commit.assert_called_once()
+    
+    kafka_mock.send_message.assert_called_once()
+    topic, event = kafka_mock.send_message.call_args[0]
+    assert topic == "post_comments"
+    assert event["comment_id"] == 'comment-123'
+    assert event["post_id"] == post_id
+    assert event["user_id"] == creator_id
+    assert event["text"] == comment_text
+    
+    context.set_code.assert_not_called()
+
+
+def test_get_post_with_private_access(post_servicer):
+    servicer, context, session_mock = post_servicer
+
+    post_id = str(uuid.uuid4())
+    creator_id = "owner123"
+    
+    post_mock = MagicMock()
+    post_mock.id = post_id
+    post_mock.title = "Private Post"
+    post_mock.description = "Private Description"
+    post_mock.creator_id = creator_id
+    post_mock.created_at = datetime.utcnow()
+    post_mock.updated_at = datetime.utcnow()
+    post_mock.is_private = True
+    post_mock.tags = ["private", "secret"]
+
+    query_mock = MagicMock()
+    filter_mock = MagicMock()
+
+    session_mock.query.return_value = query_mock
+    query_mock.filter.return_value = filter_mock
+    filter_mock.first.return_value = post_mock
+
+    request = post_pb2.GetPostRequest(
+        id=post_id, 
+        user_id=creator_id
+    )
+
+    response = servicer.GetPost(request, context)
+
+    session_mock.query.assert_called_with(Post)
+    query_mock.filter.assert_called()
+    
+    assert response.id == post_id
+    assert response.title == "Private Post"
+    assert response.description == "Private Description"
+    assert response.creator_id == creator_id
+    assert response.is_private == True
+    assert list(response.tags) == ["private", "secret"]
+    
+    context.set_code.assert_not_called()
+    
+    session_mock.close.assert_called_once()
+
+
+def test_update_post_updated_at_timestamp(post_servicer):
+    servicer, context, session_mock = post_servicer
+
+    post_id = str(uuid.uuid4())
+    original_created_at = datetime(2025, 1, 1, 10, 0, 0)
+    original_updated_at = datetime(2025, 1, 1, 10, 0, 0)
+    
+    post_mock = MagicMock()
+    post_mock.id = post_id
+    post_mock.creator_id = "user1"
+    post_mock.created_at = original_created_at
+    post_mock.updated_at = original_updated_at
+    post_mock.title = "Original Title"
+    post_mock.description = "Original Description"
+    post_mock.is_private = False
+    post_mock.tags = ["original"]
+
+    query_mock = MagicMock()
+    filter_mock = MagicMock()
+
+    session_mock.query.return_value = query_mock
+    query_mock.filter.return_value = filter_mock
+    filter_mock.first.return_value = post_mock
+
+    request = post_pb2.UpdatePostRequest(
+        id=post_id,
+        title="Updated Title",
+        description="Updated Description",
+        creator_id="user1",
+        is_private=True,
+        tags=["updated", "modified"],
+    )
+
+    fixed_time = datetime(2025, 1, 2, 15, 30, 0)
+    with patch('grpc_server.post_server.datetime') as mock_datetime:
+        mock_datetime.utcnow.return_value = fixed_time
+        mock_datetime.now.return_value = fixed_time
+        
+        response = servicer.UpdatePost(request, context)
+
+    session_mock.query.assert_called_with(Post)
+    
+    assert post_mock.title == "Updated Title"
+    assert post_mock.description == "Updated Description"
+    assert post_mock.is_private == True
+    assert post_mock.tags == ["updated", "modified"]
+    
+    assert post_mock.updated_at == fixed_time
+    
+    assert post_mock.created_at == original_created_at
+    
+    session_mock.commit.assert_called_once()
+    session_mock.refresh.assert_called_once_with(post_mock)
+    
+    assert response.id == post_id
+    assert response.title == "Updated Title"
+    assert response.updated_at == fixed_time.isoformat()
+    assert response.created_at == original_created_at.isoformat()
+    
+    context.set_code.assert_not_called()
